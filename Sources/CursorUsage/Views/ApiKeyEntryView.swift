@@ -6,12 +6,30 @@ struct ApiKeyEntryView: View {
     @ObservedObject var store: UsageStore
     @State private var input = ""
     @State private var error: String?
+    /// SecureField 按系统规则禁止复制/剪切;需要复制时可切换为明文显示。
+    @State private var reveal = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SecureField("粘贴 crsr_… 开头的 API Key", text: $input)
+            HStack(spacing: 6) {
+                Group {
+                    if reveal {
+                        TextField("粘贴 crsr_… 开头的 API Key", text: $input)
+                    } else {
+                        SecureField("粘贴 crsr_… 开头的 API Key", text: $input)
+                    }
+                }
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(save)
+
+                Button {
+                    reveal.toggle()
+                } label: {
+                    Image(systemName: reveal ? "eye.slash" : "eye")
+                }
+                .buttonStyle(.borderless)
+                .help(reveal ? "隐藏" : "显示明文(可复制)")
+            }
             HStack {
                 Button("保存", action: save).disabled(input.isEmpty)
                 Button("去创建 Key") {
