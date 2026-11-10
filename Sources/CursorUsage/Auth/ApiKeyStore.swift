@@ -7,12 +7,23 @@ enum ApiKeyStore {
     private static let service = "com.colin.cursor-usage"
     private static let account = "user-api-key"
 
+    /// 进程内缓存:每次启动最多访问一次钥匙串,避免反复弹出授权框。
+    private static let lock = NSLock()
+    private static var cached: String?
+
     /// 环境变量优先(方便命令行调试),否则读钥匙串
     static func load() -> String? {
         if let env = ProcessInfo.processInfo.environment["CURSOR_API_KEY"]?
             .trimmingCharacters(in: .whitespacesAndNewlines), !env.isEmpty {
             return env
         }
+        lock.lock(); defer { lock.unlock() }
+        if let cached { return cached }
+        cached = readFromKeychain()
+        return cached
+    }
+
+    private static func readFromKeychain() -> String? {
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,
@@ -38,10 +49,13 @@ enum ApiKeyStore {
             kSecValueData: Data(key.utf8),
             kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlock,
         ]
-        return SecItemAdd(attrs as CFDictionary, nil) == errSecSuccess
+        guard SecItemAdd(attrs as CFDictionary, nil) == errSecSuccess else { return false }
+        lock.lock(); cached = key; lock.unlock()
+        return true
     }
 
     static func delete() {
+        lock.lock(); cached = nil; lock.unlock()
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,

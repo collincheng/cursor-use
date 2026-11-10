@@ -32,7 +32,23 @@ cat > "$APP/Contents/Info.plist" <<EOF
 </plist>
 EOF
 
-codesign --force --sign - "$APP" >/dev/null 2>&1 || echo "警告: codesign 失败,通知/开机自启可能不可用"
+# 签名身份:
+#  - 环境变量 CODESIGN_IDENTITY 优先;
+#  - 否则自动使用名为 "CursorUsage Dev" 的本地证书(固定身份,重新打包后签名不变,
+#    钥匙串里点过一次"始终允许"就长期有效);
+#  - 都没有则退回 ad-hoc 签名(每次打包签名都会变,钥匙串会重新询问)。
+IDENTITY="${CODESIGN_IDENTITY:-}"
+if [ -z "$IDENTITY" ] && security find-identity -p codesigning 2>/dev/null | grep -q '"CursorUsage Dev"'; then
+    IDENTITY="CursorUsage Dev"
+fi
+
+if [ -n "$IDENTITY" ] && codesign --force --sign "$IDENTITY" "$APP" >/dev/null 2>&1; then
+    echo "签名: $IDENTITY(固定身份)"
+else
+    [ -n "$IDENTITY" ] && echo "警告: 使用 \"$IDENTITY\" 签名失败,退回 ad-hoc"
+    codesign --force --sign - "$APP" >/dev/null 2>&1 || echo "警告: codesign 失败,通知/开机自启可能不可用"
+    echo "签名: ad-hoc(每次打包签名会变,钥匙串可能重新询问;创建名为 \"CursorUsage Dev\" 的代码签名证书可避免)"
+fi
 
 echo "已生成: $APP"
 echo "运行:   open $APP"
