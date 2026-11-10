@@ -17,7 +17,6 @@ enum SelfTest {
         today()
         countdown()
         levels()
-        steps()
         dates()
 
         print(failures == 0 ? "ALL PASSED" : "\(failures) FAILED")
@@ -164,15 +163,6 @@ enum SelfTest {
         check(UsageLevel(percent: 95) == .critical, "95% -> 严重")
         check(UsageLevel(percent: nil) == .normal, "nil -> 正常")
         check(UsageLevel.warning < UsageLevel.critical, "档位可比较")
-    }
-
-    private static func steps() {  // 增量提醒决策
-        check(Notifier.decideStep(baseline: nil, current: 50, step: 2) == .setBaseline(50), "首次只记基准,不通知")
-        check(Notifier.decideStep(baseline: 50, current: 51.9, step: 2) == .none, "增长 1.9% 不提醒")
-        check(Notifier.decideStep(baseline: 50, current: 52, step: 2) == .notify(from: 50), "增长 2% 提醒")
-        check(Notifier.decideStep(baseline: 50, current: 57, step: 2) == .notify(from: 50), "一次增长多于步长也只提醒一次")
-        check(Notifier.decideStep(baseline: 50, current: 10, step: 2) == .setBaseline(10), "用量回落(新账期)重置基准")
-        check(Notifier.decideStep(baseline: 50, current: 52.4, step: 2.5) == .none, "步长 2.5% 时 2.4% 不提醒")
     }
 
     private static func dates() {

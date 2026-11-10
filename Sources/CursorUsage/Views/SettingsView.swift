@@ -8,8 +8,6 @@ struct SettingsView: View {
     @AppStorage(Pref.critThreshold) private var crit = 90
     @AppStorage(Pref.menuBarMode) private var mode: MetricMode = .api
     @AppStorage(Pref.notificationsEnabled) private var notifications = true
-    @AppStorage(Pref.stepNotifyEnabled) private var stepNotify = true
-    @AppStorage(Pref.stepPercent) private var stepPercent = 2.0
 
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
 
@@ -32,12 +30,7 @@ struct SettingsView: View {
                 ForEach(MetricMode.allCases) { Text($0.pickerTitle).tag($0) }
             }
 
-            Toggle("发送通知", isOn: $notifications)
-            Toggle("每增长一定比例就提醒", isOn: $stepNotify)
-                .disabled(!notifications)
-            Stepper("提醒间隔 +\(String(format: "%.1f", stepPercent))%",
-                    value: $stepPercent, in: 0.5...20, step: 0.5)
-                .disabled(!notifications || !stepNotify)
+            Toggle("超过警告线/严重线时发送通知", isOn: $notifications)
             Stepper("警告线 \(warn)%", value: $warn, in: 10...99, step: 5)
             Stepper("严重线 \(crit)%", value: $crit, in: 10...100, step: 5)
 

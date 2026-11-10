@@ -7,8 +7,6 @@ enum Pref {
     static let critThreshold = "critThreshold"
     static let menuBarMode = "menuBarMode"                  // MetricMode.rawValue
     static let notificationsEnabled = "notificationsEnabled"
-    static let stepNotifyEnabled = "stepNotifyEnabled"      // 每增长 N% 提醒
-    static let stepPercent = "stepPercent"
 
     private static let versionKey = "prefsVersion"
     private static let currentVersion = 2
@@ -21,10 +19,10 @@ enum Pref {
             critThreshold: 90,
             menuBarMode: MetricMode.api.rawValue,
             notificationsEnabled: true,
-            stepNotifyEnabled: true,
-            stepPercent: 2.0,
         ])
         migrate(d)
+        // 已移除的"每增长 N% 提醒"功能留下的设置
+        for key in ["stepNotifyEnabled", "stepPercent", "stepBaseline"] { d.removeObject(forKey: key) }
     }
 
     /// v2:显示指标改为 API 用量。
@@ -45,6 +43,4 @@ enum Pref {
     static var warn: Double { Double(UserDefaults.standard.integer(forKey: warnThreshold)) }
     static var crit: Double { Double(UserDefaults.standard.integer(forKey: critThreshold)) }
     static var notifications: Bool { UserDefaults.standard.bool(forKey: notificationsEnabled) }
-    static var stepNotify: Bool { UserDefaults.standard.bool(forKey: stepNotifyEnabled) }
-    static var step: Double { max(0.1, UserDefaults.standard.double(forKey: stepPercent)) }
 }
