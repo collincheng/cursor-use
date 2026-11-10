@@ -17,6 +17,8 @@ final class UsageStore: ObservableObject {
     private var lastFetch = Date.distantPast
     private var timer: Timer?
     private var inflight = false
+    /// 换 Key / 移除 Key 时递增。请求返回时代数已变,说明结果属于旧 Key,直接丢弃。
+    private var generation = 0
     private let client = CursorAPIClient()
 
     init() {
@@ -50,17 +52,26 @@ final class UsageStore: ObservableObject {
 
     func removeKey() {
         ApiKeyStore.delete()
-        snapshot = nil
+        generation += 1   // 作废仍在飞的请求,它们返回时不再写回用量或状态
+        inflight = false
+        clearData()
         status = .needsKey
         Task { await TokenProvider.shared.reset() }
     }
 
     private func resetAndRefresh() {
+        generation += 1   // 旧 Key 的请求可能还没回来:作废它,由新请求接管
+        inflight = false
         Task {
             await TokenProvider.shared.reset()
-            inflight = false
             refresh()
         }
+    }
+
+    /// 清空内存和磁盘里的用量,避免没有 Key 时仍显示上一个账号的数字
+    private func clearData() {
+        snapshot = nil
+        SnapshotCache.clear()
     }
 
     private func tick() {
@@ -76,24 +87,35 @@ final class UsageStore: ObservableObject {
         guard !inflight else { return }
         inflight = true
         status = .loading
+        let gen = generation
         Task {
-            do {
-                let snap = try await client.fetchSnapshot()
-                snapshot = snap
-                status = .ok
-                lastFetch = Date()
-                SnapshotCache.save(snap)
-                Notifier.shared.evaluate(snap)
-            } catch {
-                if case APIError.noKey = error {
-                    status = .needsKey
-                } else {
-                    status = .failed(error.localizedDescription)
-                }
-                // 失败后 1 分钟再试,而不是等满一个间隔
-                lastFetch = Date().addingTimeInterval(-Pref.refreshInterval + 60)
-            }
+            let result: Result<UsageSnapshot, Error>
+            do { result = .success(try await client.fetchSnapshot()) }
+            catch { result = .failure(error) }
+            // 等待期间换过 Key:这次结果属于旧 Key,不写回。inflight 已由新请求接管,这里不能动它。
+            guard gen == generation else { return }
             inflight = false
+            apply(result)
+        }
+    }
+
+    private func apply(_ result: Result<UsageSnapshot, Error>) {
+        switch result {
+        case .success(let snap):
+            snapshot = snap
+            status = .ok
+            lastFetch = Date()
+            SnapshotCache.save(snap)
+            Notifier.shared.evaluate(snap)
+        case .failure(let error):
+            if case APIError.noKey = error {
+                clearData()   // 没有 Key 就不能保留上一把 Key 的数据
+                status = .needsKey
+            } else {
+                status = .failed(error.localizedDescription)
+            }
+            // 失败后 1 分钟再试,而不是等满一个间隔
+            lastFetch = Date().addingTimeInterval(-Pref.refreshInterval + 60)
         }
     }
 }

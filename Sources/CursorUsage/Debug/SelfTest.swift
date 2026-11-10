@@ -20,6 +20,7 @@ enum SelfTest {
         progressBar()
         menuBarIcon()
         levels()
+        thresholds()
         dates()
 
         print(failures == 0 ? "ALL PASSED" : "\(failures) FAILED")
@@ -199,6 +200,15 @@ enum SelfTest {
         check(MenuBarIcon.fraction(for: 150) == 1 && MenuBarIcon.fraction(for: -3) == 0, "图标: 超出范围被限制")
         let img = MenuBarIcon.image(percent: 42)
         check(img.isTemplate && img.size.width == MenuBarIcon.canvas, "图标: 模板图,尺寸 18pt")
+    }
+
+    private static func thresholds() {
+        check(Pref.clampWarn(80, crit: 90) == 80, "阈值: 合法的警告线不变")
+        check(Pref.clampWarn(95, crit: 90) == 85, "阈值: 警告线不能高于严重线(至少低 5)")
+        check(Pref.clampWarn(5, crit: 90) == 10, "阈值: 警告线下限 10")
+        check(Pref.clampCrit(85, warn: 80) == 85, "阈值: 合法的严重线不变")
+        check(Pref.clampCrit(80, warn: 80) == 85, "阈值: 严重线不能低于警告线(至少高 5)")
+        check(Pref.clampCrit(120, warn: 80) == 100, "阈值: 严重线上限 100")
     }
 
     private static func levels() {  // 默认警告线 80、严重线 90

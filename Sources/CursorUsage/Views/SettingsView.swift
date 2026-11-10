@@ -31,8 +31,15 @@ struct SettingsView: View {
             }
 
             Toggle("超过警告线/严重线时发送通知", isOn: $notifications)
-            Stepper("警告线 \(warn)%", value: $warn, in: 10...99, step: 5)
-            Stepper("严重线 \(crit)%", value: $crit, in: 10...100, step: 5)
+            // 两条线互相约束:警告线必须比严重线至少低 5 个点
+            Stepper("警告线 \(warn)%", value: Binding(
+                get: { warn },
+                set: { warn = Pref.clampWarn($0, crit: crit) }
+            ), in: 10...95, step: 5)
+            Stepper("严重线 \(crit)%", value: Binding(
+                get: { crit },
+                set: { crit = Pref.clampCrit($0, warn: warn) }
+            ), in: 10...100, step: 5)
 
             Toggle("开机自动启动", isOn: Binding(
                 get: { launchAtLogin },
@@ -40,6 +47,14 @@ struct SettingsView: View {
             ))
             .disabled(!LaunchAtLogin.isAvailable)
             .help(LaunchAtLogin.isAvailable ? "" : "请以打包后的 .app 方式运行")
+            if LaunchAtLogin.needsApproval {
+                HStack {
+                    Text("需在系统设置的登录项中允许").font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("打开设置") { LaunchAtLogin.openSystemSettings() }
+                        .buttonStyle(.link)
+                }
+            }
         }
         .font(.callout)
     }

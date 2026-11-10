@@ -39,17 +39,27 @@ enum ApiKeyStore {
         return s
     }
 
+    /// 原地更新已有条目:写入失败时旧 Key 仍然保留;条目不存在时才新增。
+    /// ThisDeviceOnly:不随加密备份迁移到其它 Mac。
     @discardableResult
     static func save(_ key: String) -> Bool {
-        delete()
-        let attrs: [CFString: Any] = [
+        let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,
             kSecAttrAccount: account,
-            kSecValueData: Data(key.utf8),
-            kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlock,
         ]
-        guard SecItemAdd(attrs as CFDictionary, nil) == errSecSuccess else { return false }
+        let update: [CFString: Any] = [
+            kSecValueData: Data(key.utf8),
+            kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        ]
+        var status = SecItemUpdate(query as CFDictionary, update as CFDictionary)
+        if status == errSecItemNotFound {
+            var attrs = query
+            attrs[kSecValueData] = Data(key.utf8)
+            attrs[kSecAttrAccessible] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            status = SecItemAdd(attrs as CFDictionary, nil)
+        }
+        guard status == errSecSuccess else { return false }
         lock.lock(); cached = key; lock.unlock()
         return true
     }

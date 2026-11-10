@@ -56,8 +56,9 @@ final class StatusBarController: NSObject {
         var failed = false
         if case .failed = store.status { failed = true }
 
+        // 没有 Key 时即使还有缓存数字也不显示,与弹窗保持一致
+        if store.status == .needsKey { return ("未配置", nil, nil) }
         guard let snap = store.snapshot else {
-            if store.status == .needsKey { return ("未配置", nil, nil) }
             return (failed ? "⚠︎" : "…", nil, nil)
         }
 

@@ -36,12 +36,16 @@ final class Notifier {
             return
         }
         guard level > stored else { return }
-
-        d.set(level.rawValue, forKey: levelKey)
+        // 关闭通知时不记录档位:之后重新打开,仍会对当前已越线的档位提醒一次
         guard Pref.notifications else { return }
 
         let title = level == .critical ? "Cursor \(mode.label)即将耗尽" : "Cursor \(mode.label)提醒"
-        send(id: "level-\(level.rawValue)", title: title, body: body(mode: mode, percent: p, resetIn: snap.resetCountdown))
+        let storedKey = levelKey
+        send(id: "level-\(level.rawValue)", title: title,
+             body: body(mode: mode, percent: p, resetIn: snap.resetCountdown)) {
+            // 系统接收后才记为已提醒;未授权等失败时不记录,下次刷新会再试
+            d.set(level.rawValue, forKey: storedKey)
+        }
     }
 
     // MARK: 发送
@@ -52,7 +56,7 @@ final class Notifier {
         return s
     }
 
-    private func send(id: String, title: String, body: String) {
+    private func send(id: String, title: String, body: String, onDelivered: @escaping () -> Void) {
         guard available else { return }
         let content = UNMutableNotificationContent()
         content.title = title
@@ -60,6 +64,8 @@ final class Notifier {
         content.sound = .default
         // 每次用唯一 id,避免新通知覆盖上一条而看不出来
         let req = UNNotificationRequest(identifier: "\(id)-\(Date().timeIntervalSince1970)", content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(req)
+        UNUserNotificationCenter.current().add(req) { error in
+            if error == nil { onDelivered() }
+        }
     }
 }

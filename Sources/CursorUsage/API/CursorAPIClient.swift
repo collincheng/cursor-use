@@ -25,13 +25,17 @@ actor TokenProvider {
     static let shared = TokenProvider()
 
     private var token: String?
+    /// 换出 token 时用的 Key。换 Key 后不能复用旧账号的 token(包括换 Key 时仍在飞的兑换请求)。
+    private var tokenKey: String?
     private var expiry: Date?
 
-    func reset() { token = nil; expiry = nil }
+    func reset() { token = nil; tokenKey = nil; expiry = nil }
 
     func accessToken(forceRefresh: Bool = false, log: ((String) -> Void)? = nil) async throws -> String {
-        if !forceRefresh, let token, let expiry, expiry.timeIntervalSinceNow > 300 { return token }
         guard let key = ApiKeyStore.load() else { throw APIError.noKey }
+        if !forceRefresh, let token, tokenKey == key, let expiry, expiry.timeIntervalSinceNow > 300 {
+            return token
+        }
 
         var req = URLRequest(url: CursorAPIClient.exchangeURL, timeoutInterval: 20)
         req.httpMethod = "POST"
@@ -55,6 +59,7 @@ actor TokenProvider {
         else { throw APIError.badResponse }
 
         token = t
+        tokenKey = key
         expiry = Self.jwtExpiry(t) ?? Date().addingTimeInterval(50 * 60)
         return t
     }
@@ -123,18 +128,24 @@ struct CursorAPIClient {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw APIError.badResponse
         }
-        // 附加信息:失败不影响主流程(账号没有 Grok Bot 额度时接口可能 403/404)
-        let plan = await optionalCall("GetPlanInfo", token: token, log: log).flatMap {
-            J.str(J.dict($0["planInfo"])?["planName"]) ?? J.str($0["planName"])
-        }
-        let grok = await optionalCall("GetSandUsageStatus", token: token, log: log)
-
+        // 附加信息:失败不影响主流程(账号没有 Grok Bot 额度时接口可能 403/404)。
+        // 三个请求互不依赖,并行发出,耗时取决于最慢的那个,而不是三者相加。
         // 今日用量:时间参数是毫秒时间戳字符串。本地时区 0 点起算。
         let startOfDay = Calendar.current.startOfDay(for: Date())
-        let today = await optionalCall("GetAggregatedUsageEvents", token: token, log: log, body: [
+        let todayBody: [String: Any] = [
             "startDate": String(Int64(startOfDay.timeIntervalSince1970 * 1000)),
             "endDate": String(Int64(Date().timeIntervalSince1970 * 1000)),
-        ])
+        ]
+        let authToken = token
+        async let planCall = optionalCall("GetPlanInfo", token: authToken, log: log)
+        async let grokCall = optionalCall("GetSandUsageStatus", token: authToken, log: log)
+        async let todayCall = optionalCall("GetAggregatedUsageEvents", token: authToken, log: log, body: todayBody)
+
+        let plan = (await planCall).flatMap {
+            J.str(J.dict($0["planInfo"])?["planName"]) ?? J.str($0["planName"])
+        }
+        let grok = await grokCall
+        let today = await todayCall
         return Raw(usage: json, plan: plan, grok: grok, today: today)
     }
 

@@ -13,4 +13,9 @@ enum SnapshotCache {
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
         UserDefaults.standard.set(data, forKey: key)
     }
+
+    /// 移除 Key 或 Key 失效时调用,避免下次启动又显示旧账号的用量
+    static func clear() {
+        UserDefaults.standard.removeObject(forKey: key)
+    }
 }

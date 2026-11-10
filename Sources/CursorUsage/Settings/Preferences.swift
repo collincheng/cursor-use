@@ -43,4 +43,14 @@ enum Pref {
     static var warn: Double { Double(UserDefaults.standard.integer(forKey: warnThreshold)) }
     static var crit: Double { Double(UserDefaults.standard.integer(forKey: critThreshold)) }
     static var notifications: Bool { UserDefaults.standard.bool(forKey: notificationsEnabled) }
+
+    /// 警告线必须比严重线低至少 5 个点,否则档位判断会失效。返回修正后的警告线。
+    static func clampWarn(_ warn: Int, crit: Int) -> Int {
+        max(10, min(warn, crit - 5))
+    }
+
+    /// 严重线不能低于警告线 + 5,也不能超过 100。返回修正后的严重线。
+    static func clampCrit(_ crit: Int, warn: Int) -> Int {
+        min(100, max(crit, warn + 5))
+    }
 }
