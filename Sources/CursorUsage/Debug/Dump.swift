@@ -27,7 +27,17 @@ enum Dump {
             err("解析为用量快照: \(snap != nil ? "成功" : "失败(字段不匹配)")")
             if let snap {
                 err("Grok Bot 额度: \(snap.grokPercent.map { Fmt.percent1($0) } ?? "无独立额度")")
-                err("今日消耗: \(snap.todayCents.map { Fmt.dollars(cents: $0) } ?? "(未取到)")")
+                if let t = snap.today {
+                    func line(_ name: String, _ u: TokenUsage?) {
+                        guard let u else { return }
+                        err("  \(name): \(Fmt.dollars(cents: u.cents)) · \(Fmt.tokenBreakdown(u))")
+                    }
+                    err("今日消耗:")
+                    line("合计", t.all); line("Auto 池", t.auto); line("API 池", t.api)
+                    if t.auto == nil { err("  (未拿到 autoBucketModels,无法按池子拆分)") }
+                } else {
+                    err("今日消耗: (未取到)")
+                }
             }
         } catch {
             err("错误: \(error.localizedDescription)")

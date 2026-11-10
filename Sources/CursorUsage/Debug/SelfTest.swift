@@ -15,6 +15,7 @@ enum SelfTest {
         metrics()
         grok()
         today()
+        pools()
         countdown()
         levels()
         dates()
@@ -129,17 +130,45 @@ enum SelfTest {
 
         // 各模型 totalCents 求和(数字或字符串都接受)
         let agg = json(#"{"aggregations":[{"modelIntent":"composer-2.5","totalCents":2167.5},{"modelIntent":"grok-4.7","totalCents":"32.5"}]}"#)
-        check(UsageSnapshot(json: usage, today: agg)?.todayCents == 2200, "今日消耗: 各模型求和")
+        check(UsageSnapshot(json: usage, today: agg)?.today?.all.cents == 2200, "今日消耗: 各模型求和")
 
         // 没有数据的区间接口返回 {},应是 0 而不是"未取到"
-        check(UsageSnapshot(json: usage, today: json("{}"))?.todayCents == 0, "今日消耗: {} -> 0")
-        check(UsageSnapshot(json: usage, today: nil)?.todayCents == nil, "今日消耗: 接口失败 -> nil(不显示)")
+        check(UsageSnapshot(json: usage, today: json("{}"))?.today?.all.cents == 0, "今日消耗: {} -> 0")
+        check(UsageSnapshot(json: usage, today: nil)?.today == nil, "今日消耗: 接口失败 -> nil(不显示)")
 
         // 跨天的缓存不显示
         let fresh = UsageSnapshot(json: usage, today: agg, now: Date())
         let stale = UsageSnapshot(json: usage, today: agg, now: Date().addingTimeInterval(-2 * 86_400))
-        check(fresh?.todayValid == true, "今日消耗: 当天有效")
-        check(stale?.todayValid == false, "今日消耗: 跨天的缓存不显示")
+        check(fresh?.todayUsage != nil, "今日消耗: 当天有效")
+        check(stale?.todayUsage == nil, "今日消耗: 跨天的缓存不显示")
+    }
+
+    private static func pools() {
+        // 账期接口的 autoBucketModels 决定哪些模型属于 Auto 池,其余属于 API 池
+        let withBuckets = json(#"{"autoBucketModels":["composer-2.5","default"],"planUsage":{"totalPercentUsed":10}}"#)!
+        let agg = json("""
+        {"aggregations":[
+          {"modelIntent":"composer-2.5","totalCents":1000,"inputTokens":"1000000","outputTokens":"200000","cacheReadTokens":"5000000","cacheWriteTokens":"100000"},
+          {"modelIntent":"claude-opus","totalCents":2500,"inputTokens":"300000","outputTokens":"50000","cacheReadTokens":"2000000","cacheWriteTokens":"0"},
+          {"modelIntent":"gpt-x","totalCents":80,"inputTokens":"1000","outputTokens":"500"}
+        ]}
+        """)
+        let t = UsageSnapshot(json: withBuckets, today: agg)?.today
+        check(t?.all.cents == 3580, "池子: 合计金额")
+        check(t?.auto?.cents == 1000, "池子: Auto 金额")
+        check(t?.api?.cents == 2580, "池子: API 金额(不在 Auto 列表里的都算 API)")
+        check(t?.auto?.input == 1_000_000 && t?.auto?.output == 200_000, "池子: Auto 的输入/输出 tokens")
+        check(t?.auto?.cache == 5_100_000, "池子: 缓存读+写")
+        check(t?.all.totalTokens == 8_651_500, "池子: 合计 tokens(缺字段按 0)")
+
+        // 拿不到 Auto 模型列表时不拆分,只给合计
+        let noBuckets = UsageSnapshot(json: json(realResponse)!, today: agg)?.today
+        check(noBuckets?.all.cents == 3580 && noBuckets?.auto == nil && noBuckets?.api == nil, "池子: 无模型列表时不拆分")
+
+        check(Fmt.tokens(950) == "950", "tokens 格式: 个位")
+        check(Fmt.tokens(12_300) == "12.3K", "tokens 格式: K")
+        check(Fmt.tokens(4_900_000) == "4.9M", "tokens 格式: M")
+        check(Fmt.tokens(1_200_000_000) == "1.20B", "tokens 格式: B")
     }
 
     private static func countdown() {

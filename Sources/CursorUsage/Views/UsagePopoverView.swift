@@ -119,18 +119,25 @@ private struct UsageDetailView: View {
     @ViewBuilder
     private var breakdown: some View {
         if snap.autoPercent != nil || snap.apiPercent != nil || snap.grokPercent != nil {
-            VStack(alignment: .leading, spacing: 6) {
-                if let p = snap.autoPercent { splitBar("Auto", p) }
-                if let p = snap.apiPercent { splitBar("API", p) }
-                if let p = snap.grokPercent { splitBar("Grok", p) }
+            VStack(alignment: .leading, spacing: 8) {
+                if let p = snap.autoPercent { splitBar("Auto", p, today: snap.todayUsage?.auto) }
+                if let p = snap.apiPercent { splitBar("API", p, today: snap.todayUsage?.api) }
+                if let p = snap.grokPercent { splitBar("Grok", p, today: nil) }
             }
         }
     }
 
     @ViewBuilder
     private var quota: some View {
-        if snap.todayValid {
-            InfoRow("今日消耗", Fmt.dollars(cents: snap.todayCents))
+        if let all = snap.todayUsage?.all {
+            VStack(alignment: .leading, spacing: 2) {
+                InfoRow("今日消耗", Fmt.dollars(cents: all.cents))
+                if all.totalTokens > 0 {
+                    Text(Fmt.tokenBreakdown(all))
+                        .font(.caption2).foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            }
         }
         if let limit = snap.limitCents {
             InfoRow("套餐额度", Fmt.dollars(cents: limit))
@@ -140,11 +147,19 @@ private struct UsageDetailView: View {
         }
     }
 
-    private func splitBar(_ title: String, _ percent: Double) -> some View {
-        HStack(spacing: 8) {
-            Text(title).font(.caption).foregroundStyle(.secondary).frame(width: 34, alignment: .leading)
-            ProgressBar(percent: percent)
-            Text(Fmt.percent1(percent)).font(.caption).monospacedDigit().frame(width: 48, alignment: .trailing)
+    /// 一个池子的额度条;`today` 有值时在下面补一行该池子今天的金额和 tokens。
+    private func splitBar(_ title: String, _ percent: Double, today: TokenUsage?) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 8) {
+                Text(title).font(.caption).foregroundStyle(.secondary).frame(width: 34, alignment: .leading)
+                ProgressBar(percent: percent)
+                Text(Fmt.percent1(percent)).font(.caption).monospacedDigit().frame(width: 48, alignment: .trailing)
+            }
+            if let today {
+                Text("今日 \(Fmt.dollars(cents: today.cents)) · \(Fmt.tokens(today.totalTokens)) tokens")
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .padding(.leading, 42)
+            }
         }
     }
 
