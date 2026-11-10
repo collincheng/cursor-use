@@ -19,6 +19,7 @@ enum SelfTest {
         countdown()
         progressBar()
         menuBarIcon()
+        appInfo()
         levels()
         thresholds()
         dates()
@@ -191,6 +192,10 @@ enum SelfTest {
         check(w(50) == 100, "进度条: 正常比例")
         check(w(100) == 200 && w(180) == 200, "进度条: 满格封顶")
         check(w(-5) == 0, "进度条: 负数不画")
+    }
+
+    private static func appInfo() {
+        check(!AppInfo.version.isEmpty, "版本号非空(命令行直接运行时为 dev)")
     }
 
     private static func menuBarIcon() {

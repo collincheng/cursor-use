@@ -1,0 +1,50 @@
+name: Release
+
+# 推送形如 v1.2.3 的 tag 时触发:自检 → 打通用二进制包 → 创建 GitHub Release。
+# 带连字符的版本(如 v1.2.3-beta.1)会标记为预发布。
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
+
+permissions:
+  contents: write   # 创建 Release 并上传附件
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # 需要完整历史和 tag,才能生成"与上一个版本之间的变更"
+
+      - name: 构建并自检
+        run: |
+          swift build
+          .build/debug/CursorUsage --selftest
+
+      - name: 打包(通用二进制)
+        run: VERSION="${GITHUB_REF_NAME#v}" ./scripts/package-release.sh
+
+      - name: 校验产物的版本号
+        run: |
+          expected="${GITHUB_REF_NAME#v}"
+          actual="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' build/CursorUsage.app/Contents/Info.plist)"
+          archs="$(lipo -archs build/CursorUsage.app/Contents/MacOS/CursorUsage)"
+          echo "版本: $actual  架构: $archs"
+          test "$actual" = "$expected"
+          echo "$archs" | grep -q arm64
+          echo "$archs" | grep -q x86_64
+
+      - name: 生成发布说明
+        run: ./scripts/release-notes.sh "$GITHUB_REF_NAME" > release-notes.md
+
+      - name: 创建 Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          flags=""
+          case "$GITHUB_REF_NAME" in *-*) flags="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "CursorUsage ${GITHUB_REF_NAME}" \
+            --notes-file release-notes.md \
+            $flags

@@ -16,6 +16,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 let args = CommandLine.arguments
+if args.contains("--version") {
+    print("CursorUsage \(AppInfo.displayVersion)")
+    exit(0)
+}
 if args.contains("--selftest") {
     exit(SelfTest.run())
 }

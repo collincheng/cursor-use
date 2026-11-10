@@ -1,4 +1,6 @@
 .build/
 build/
+dist/
+release-notes.md
 .swiftpm/
 .DS_Store

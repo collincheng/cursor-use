@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Swift 版本
+        run: swift --version
+
+      - name: 构建
+        run: swift build
+
+      - name: 离线自检
+        run: .build/debug/CursorUsage --selftest
+
+      - name: 打包 .app(验证打包脚本)
+        run: ./scripts/build-app.sh

@@ -55,6 +55,10 @@ struct SettingsView: View {
                         .buttonStyle(.link)
                 }
             }
+
+            Text("版本 \(AppInfo.displayVersion)")
+                .font(.caption2).foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .font(.callout)
     }

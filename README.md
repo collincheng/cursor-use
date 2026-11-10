@@ -22,6 +22,22 @@ macOS 菜单栏应用：实时查看 Cursor 用量与花费，额度将满时提
 
 ## 安装
 
+### 方式一：下载发布版（推荐）
+
+1. 到 [Releases](../../releases) 下载最新的 `CursorUsage-<版本>-macOS-universal.zip`（Apple 芯片和 Intel 通用）。
+2. 解压，把 `CursorUsage.app` 拖进「应用程序」。
+3. 首次打开会被 macOS 拦截（应用没有 Apple 开发者签名）：在「系统设置 → 隐私与安全性」拉到底部点「仍要打开」，或在终端执行：
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/CursorUsage.app
+   ```
+
+4. 校验（可选）：`shasum -a 256 -c CursorUsage-<版本>-macOS-universal.zip.sha256`
+
+升级到新版本后钥匙串可能再询问一次授权，点「始终允许」。当前版本号在弹窗齿轮设置的底部，或运行 `CursorUsage --version`。
+
+### 方式二：从源码构建
+
 ```bash
 ./scripts/build-app.sh
 open build/CursorUsage.app
@@ -72,6 +88,29 @@ swift run CursorUsage --dump     # 打印接口原始 JSON（需要已配置 Key
 ```
 
 `--dump` 方便核对接口字段；stderr 只打状态码，不含凭据。
+
+## 发布新版本
+
+版本号遵循 `主.次.修订`（如 `1.2.3`，预发布 `1.2.3-beta.1`），由 git tag 决定。
+
+```bash
+./scripts/release.sh 1.2.3
+```
+
+脚本会检查当前在 `main`、工作区干净、与 `origin/main` 一致，跑完自检后打 tag `v1.2.3` 并推送。tag 推送后 GitHub Actions（`.github/workflows/release.yml`）自动：
+
+1. 构建并跑 `--selftest`
+2. 打通用二进制（arm64 + x86_64）的 `.app`，压缩成 zip 并生成 SHA-256
+3. 校验产物里的版本号和架构
+4. 创建 GitHub Release，附上 zip、校验文件，以及与上一个版本之间的提交列表（带连字符的版本标记为预发布）
+
+每次推送到 `main` 和每个 PR 还会跑 `.github/workflows/ci.yml`：构建、自检、验证打包脚本。
+
+本地试打发布包（不发布）：
+
+```bash
+VERSION=1.2.3 ./scripts/package-release.sh   # 产物在 dist/
+```
 
 ## 许可
 
