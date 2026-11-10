@@ -19,6 +19,9 @@ let args = CommandLine.arguments
 if args.contains("--selftest") {
     exit(SelfTest.run())
 }
+if let i = args.firstIndex(of: "--icon-preview"), i + 1 < args.count {
+    exit(IconPreview.run(outputPath: args[i + 1]))
+}
 if args.contains("--dump") {
     Task { await Dump.run(); exit(0) }
     dispatchMain()

@@ -14,8 +14,6 @@ final class StatusBarController: NSObject {
         super.init()
 
         if let button = item.button {
-            button.image = NSImage(systemSymbolName: "gauge.medium", accessibilityDescription: "Cursor 用量")
-            button.image?.isTemplate = true
             button.imagePosition = .imageLeading
             button.target = self
             button.action = #selector(togglePopover)
@@ -40,23 +38,27 @@ final class StatusBarController: NSObject {
 
     private func render() {
         guard let button = item.button else { return }
-        let (text, color) = menuBarContent()
+        let content = menuBarContent()
+
+        let image = MenuBarIcon.image(percent: content.percent)
+        image.accessibilityDescription = "Cursor 用量"
+        button.image = image
 
         var attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
         ]
-        if let color { attrs[.foregroundColor] = color }
-        button.attributedTitle = NSAttributedString(string: " " + text, attributes: attrs)
+        if let color = content.color { attrs[.foregroundColor] = color }
+        button.attributedTitle = NSAttributedString(string: " " + content.text, attributes: attrs)
     }
 
-    /// 菜单栏文字和颜色。正常档位返回 nil 颜色,跟随系统菜单栏。
-    private func menuBarContent() -> (text: String, color: NSColor?) {
+    /// 菜单栏文字、颜色和图标进度。正常档位返回 nil 颜色,跟随系统菜单栏。
+    private func menuBarContent() -> (text: String, color: NSColor?, percent: Double?) {
         var failed = false
         if case .failed = store.status { failed = true }
 
         guard let snap = store.snapshot else {
-            if store.status == .needsKey { return ("未配置", nil) }
-            return (failed ? "⚠︎" : "…", nil)
+            if store.status == .needsKey { return ("未配置", nil, nil) }
+            return (failed ? "⚠︎" : "…", nil, nil)
         }
 
         let mode = Pref.metricMode
@@ -72,7 +74,7 @@ final class StatusBarController: NSObject {
         case .warning: color = .systemOrange
         case .critical: color = .systemRed
         }
-        return (text, color)
+        return (text, color, metric)
     }
 
     @objc private func togglePopover() {

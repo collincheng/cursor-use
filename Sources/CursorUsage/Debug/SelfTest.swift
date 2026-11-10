@@ -18,6 +18,7 @@ enum SelfTest {
         tokens()
         countdown()
         progressBar()
+        menuBarIcon()
         levels()
         dates()
 
@@ -189,6 +190,15 @@ enum SelfTest {
         check(w(50) == 100, "进度条: 正常比例")
         check(w(100) == 200 && w(180) == 200, "进度条: 满格封顶")
         check(w(-5) == 0, "进度条: 负数不画")
+    }
+
+    private static func menuBarIcon() {
+        check(MenuBarIcon.fraction(for: nil) == 0 && MenuBarIcon.fraction(for: 0) == 0, "图标: 无数据/0% 不画进度")
+        check(MenuBarIcon.fraction(for: 1) == 0.02, "图标: 1% 至少留一个圆点(最小 2%)")
+        check(MenuBarIcon.fraction(for: 50) == 0.5, "图标: 50% 指针在正上")
+        check(MenuBarIcon.fraction(for: 150) == 1 && MenuBarIcon.fraction(for: -3) == 0, "图标: 超出范围被限制")
+        let img = MenuBarIcon.image(percent: 42)
+        check(img.isTemplate && img.size.width == MenuBarIcon.canvas, "图标: 模板图,尺寸 18pt")
     }
 
     private static func levels() {  // 默认警告线 80、严重线 90
