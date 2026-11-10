@@ -95,8 +95,15 @@ struct CursorAPIClient {
         }
     }
 
-    /// 返回用量 JSON 和(尽力获取的)套餐名。`log` 只会收到状态码,不含任何凭据。
-    func fetchJSON(log: ((String) -> Void)? = nil) async throws -> (json: [String: Any], plan: String?) {
+    /// 一次拉取的原始结果。`usage` 必有;`plan`、`grok` 是尽力获取的附加信息。
+    struct Raw {
+        var usage: [String: Any]
+        var plan: String?
+        var grok: [String: Any]?
+    }
+
+    /// `log` 只会收到状态码,不含任何凭据。
+    func fetchRaw(log: ((String) -> Void)? = nil) async throws -> Raw {
         var token = try await TokenProvider.shared.accessToken(log: log)
         var (status, data) = try await call("GetCurrentPeriodUsage", token: token)
         log?("GetCurrentPeriodUsage: HTTP \(status)")
@@ -114,22 +121,27 @@ struct CursorAPIClient {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw APIError.badResponse
         }
-
-        // 套餐名:失败不影响主流程
-        var plan: String?
-        if let (s, d) = try? await call("GetPlanInfo", token: token) {
-            log?("GetPlanInfo: HTTP \(s)")
-            if (200..<300).contains(s),
-               let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any] {
-                plan = J.str(J.dict(o["planInfo"])?["planName"]) ?? J.str(o["planName"])
-            }
+        // 附加信息:失败不影响主流程(账号没有 Grok Bot 额度时接口可能 403/404)
+        let plan = await optionalCall("GetPlanInfo", token: token, log: log).flatMap {
+            J.str(J.dict($0["planInfo"])?["planName"]) ?? J.str($0["planName"])
         }
-        return (json, plan)
+        let grok = await optionalCall("GetSandUsageStatus", token: token, log: log)
+        return Raw(usage: json, plan: plan, grok: grok)
     }
 
     func fetchSnapshot() async throws -> UsageSnapshot {
-        let (json, plan) = try await fetchJSON()
-        guard let snap = UsageSnapshot(json: json, plan: plan) else { throw APIError.badResponse }
+        let raw = try await fetchRaw()
+        guard let snap = UsageSnapshot(json: raw.usage, plan: raw.plan, grok: raw.grok) else {
+            throw APIError.badResponse
+        }
         return snap
+    }
+
+    /// 请求附加接口:任何失败都返回 nil
+    private func optionalCall(_ method: String, token: String, log: ((String) -> Void)?) async -> [String: Any]? {
+        guard let (status, data) = try? await call(method, token: token) else { return nil }
+        log?("\(method): HTTP \(status)")
+        guard (200..<300).contains(status) else { return nil }
+        return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
     }
 }

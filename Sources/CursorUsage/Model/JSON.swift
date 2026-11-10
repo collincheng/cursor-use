@@ -13,6 +13,11 @@ enum J {
         return nil
     }
 
+    static func bool(_ v: Any?) -> Bool? {
+        if let n = v as? NSNumber, CFGetTypeID(n) == CFBooleanGetTypeID() { return n.boolValue }
+        return nil
+    }
+
     static func dict(_ v: Any?) -> [String: Any]? { v as? [String: Any] }
 
     /// 依次尝试多个键,返回第一个能解析成数字的值

@@ -88,8 +88,10 @@ private struct UsageDetailView: View {
                 InfoRow("按需用量", onDemandText)
             }
             if let end = snap.cycleEnd {
-                let date = end.formatted(.dateTime.month().day())
-                InfoRow("下次重置", snap.daysLeft.map { "\(date)(还有 \($0) 天)" } ?? date)
+                ResetRow(title: "额度重置", date: end)
+            }
+            if snap.grokPercent != nil, let reset = snap.grokResetAt {
+                ResetRow(title: "Grok 重置", date: reset)
             }
             InfoRow("更新于", snap.fetchedAt.formatted(date: .omitted, time: .shortened))
         }
@@ -116,10 +118,11 @@ private struct UsageDetailView: View {
 
     @ViewBuilder
     private var breakdown: some View {
-        if snap.autoPercent != nil || snap.apiPercent != nil {
+        if snap.autoPercent != nil || snap.apiPercent != nil || snap.grokPercent != nil {
             VStack(alignment: .leading, spacing: 6) {
                 if let p = snap.autoPercent { splitBar("Auto", p) }
                 if let p = snap.apiPercent { splitBar("API", p) }
+                if let p = snap.grokPercent { splitBar("Grok", p) }
             }
         }
     }

@@ -26,6 +26,19 @@ struct ProgressBar: View {
     }
 }
 
+/// 重置时间 + 实时倒计时,如 "11月10日 15:19 · 1分钟"。弹窗开着时每 15 秒更新一次。
+struct ResetRow: View {
+    let title: String
+    let date: Date
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 15)) { context in
+            InfoRow(title, "\(date.formatted(.dateTime.month().day().hour().minute())) · "
+                    + Fmt.remaining(date.timeIntervalSince(context.date)))
+        }
+    }
+}
+
 /// 左标题、右数值的一行
 struct InfoRow: View {
     let title: String

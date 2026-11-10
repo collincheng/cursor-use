@@ -13,6 +13,8 @@ enum SelfTest {
         jwt()
         parsing()
         metrics()
+        grok()
+        countdown()
         levels()
         steps()
         dates()
@@ -89,6 +91,52 @@ enum SelfTest {
         check(s.percent(for: .auto) == 10.873, "指标 auto")
         check(s.percent(for: .total) == 22.302 && s.percent(for: .amount) == 22.302, "指标 total/amount")
         check(parse(#"{"planUsage":{"totalPercentUsed":30}}"#)?.percent(for: .api) == 30, "api 缺失回退总用量")
+    }
+
+    private static func json(_ s: String) -> [String: Any]? {
+        try? JSONSerialization.jsonObject(with: Data(s.utf8)) as? [String: Any]
+    }
+
+    private static func grok() {
+        let usage = json(realResponse)!
+
+        // 有独立额度:重置时间可以是毫秒字符串
+        let own = json(#"{"usagePercent":37.5,"nextResetTimestampUtc":"1794295167000","hasNonZeroIncludedLimit":true}"#)
+        let s = UsageSnapshot(json: usage, grok: own)
+        check(s?.grokPercent == 37.5, "Grok: 百分比")
+        check(s?.grokResetAt == Date(timeIntervalSince1970: 1_794_295_167), "Grok: 重置时间(毫秒字符串)")
+        check(s?.percent(for: .grok) == 37.5, "指标 grok")
+
+        // Connect JSON 省略零值字段:有额度但没有 usagePercent 时按 0% 处理
+        check(UsageSnapshot(json: usage, grok: json(#"{"hasNonZeroIncludedLimit":true}"#))?.grokPercent == 0, "Grok: 缺省 usagePercent 按 0%")
+
+        // 没有独立额度的各种情形 -> 不显示,指标回退总用量
+        let none: [(String, String)] = [
+            ("企业共享额度", #"{"usagePercent":5,"usesPooledEnterpriseAllowance":true}"#),
+            ("额度为 0", #"{"usagePercent":5,"includedLimitZero":true}"#),
+            ("无非零额度", #"{"usagePercent":5,"hasNonZeroIncludedLimit":false}"#),
+            ("合并套餐(与 Cursor 共用额度池)", #"{"usagePercent":5,"isUnified":true}"#),
+        ]
+        for (name, body) in none {
+            check(UsageSnapshot(json: usage, grok: json(body))?.grokPercent == nil, "Grok 无独立额度: \(name)")
+        }
+        check(UsageSnapshot(json: usage, grok: nil)?.grokPercent == nil, "Grok 接口无返回 -> 无额度")
+        check(UsageSnapshot(json: usage, grok: json("{}"))?.percent(for: .grok) == 22.302, "无 Grok 额度时指标回退总用量")
+    }
+
+    private static func countdown() {
+        check(Fmt.remaining(60) == "1分钟", "倒计时: 1 分钟")
+        check(Fmt.remaining(30) == "不到1分钟", "倒计时: 不到 1 分钟")
+        check(Fmt.remaining(0) == "已到重置时间" && Fmt.remaining(-5) == "已到重置时间", "倒计时: 已到点")
+        check(Fmt.remaining(5 * 3600 + 12 * 60) == "5小时12分钟", "倒计时: 小时+分钟")
+        check(Fmt.remaining(3 * 3600) == "3小时", "倒计时: 整小时")
+        check(Fmt.remaining(2 * 86_400 + 3 * 3600 + 59) == "2天3小时", "倒计时: 天+小时")
+        check(Fmt.remaining(2 * 86_400) == "2天", "倒计时: 整天")
+
+        let past = UsageSnapshot(json: json(#"{"billingCycleEnd":"1000000000000","planUsage":{"totalPercentUsed":1}}"#)!)
+        check(past?.isCycleOver == true, "账期已结束 -> 需要刷新")
+        let future = UsageSnapshot(json: json(#"{"billingCycleEnd":"99999999999000","planUsage":{"totalPercentUsed":1}}"#)!)
+        check(future?.isCycleOver == false, "账期未结束")
     }
 
     private static func levels() {  // 默认警告线 80、严重线 90

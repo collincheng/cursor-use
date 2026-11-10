@@ -64,6 +64,11 @@ final class UsageStore: ObservableObject {
     }
 
     private func tick() {
+        // 账期刚重置:当前数据属于上一个周期,立即刷新(但同一次重置只触发一次)
+        if let end = snapshot?.cycleEnd, snapshot?.isCycleOver == true, lastFetch < end {
+            refresh()
+            return
+        }
         if Date().timeIntervalSince(lastFetch) >= Pref.refreshInterval { refresh() }
     }
 

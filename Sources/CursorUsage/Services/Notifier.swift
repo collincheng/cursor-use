@@ -71,7 +71,7 @@ final class Notifier {
         guard Pref.notifications else { return false }
 
         let title = level == .critical ? "Cursor \(mode.label)即将耗尽" : "Cursor \(mode.label)提醒"
-        send(id: "level-\(level.rawValue)", title: title, body: body(mode: mode, percent: p, daysLeft: snap.daysLeft))
+        send(id: "level-\(level.rawValue)", title: title, body: body(mode: mode, percent: p, resetIn: snap.resetCountdown))
         return true
     }
 
@@ -85,7 +85,7 @@ final class Notifier {
             guard Pref.notifications && Pref.stepNotify else { return }
             send(id: "step",
                  title: "Cursor \(mode.label) +\(String(format: "%.1f", p - from))%",
-                 body: body(mode: mode, percent: p, daysLeft: snap.daysLeft)
+                 body: body(mode: mode, percent: p, resetIn: snap.resetCountdown)
                      + "(上次提醒时 \(Fmt.percent1(from)))")
         case .none:
             break
@@ -94,9 +94,9 @@ final class Notifier {
 
     // MARK: 发送
 
-    private func body(mode: MetricMode, percent: Double, daysLeft: Int?) -> String {
+    private func body(mode: MetricMode, percent: Double, resetIn: String?) -> String {
         var s = "\(mode.label)已达 \(Fmt.percent1(percent))"
-        if let d = daysLeft { s += ",距重置还有 \(d) 天" }
+        if let r = resetIn { s += ",距重置还有 \(r)" }
         return s
     }
 

@@ -1,18 +1,30 @@
 import Foundation
 
-/// `--dump`:打印用量接口的原始返回(格式化),方便核对字段。
+/// `--dump`:打印接口的原始返回(格式化),方便核对字段。
 /// 需要已配置 API Key(钥匙串或环境变量 CURSOR_API_KEY)。stderr 只输出各请求的状态码。
 enum Dump {
     static func run() async {
         func err(_ s: String) { FileHandle.standardError.write(Data((s + "\n").utf8)) }
+        func pretty(_ obj: [String: Any]) -> String? {
+            guard let data = try? JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys]) else { return nil }
+            return String(data: data, encoding: .utf8)
+        }
+
         do {
-            let (json, plan) = try await CursorAPIClient().fetchJSON(log: err)
-            if let data = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]),
-               let text = String(data: data, encoding: .utf8) {
-                print(text)
+            let raw = try await CursorAPIClient().fetchRaw(log: err)
+
+            err("\n===== GetCurrentPeriodUsage =====")
+            if let text = pretty(raw.usage) { print(text) }
+
+            err("\n===== GetSandUsageStatus (Grok Bot) =====")
+            if let grok = raw.grok, let text = pretty(grok) { print(text) } else { err("(无返回:账号可能没有 Grok Bot 额度)") }
+
+            err("\n套餐名: \(raw.plan ?? "(未取到)")")
+            let snap = UsageSnapshot(json: raw.usage, plan: raw.plan, grok: raw.grok)
+            err("解析为用量快照: \(snap != nil ? "成功" : "失败(字段不匹配)")")
+            if let snap {
+                err("Grok Bot 额度: \(snap.grokPercent.map { Fmt.percent1($0) } ?? "无独立额度")")
             }
-            err("套餐名: \(plan ?? "(未取到)")")
-            err("解析为用量快照: \(UsageSnapshot(json: json, plan: plan) != nil ? "成功" : "失败(字段不匹配)")")
         } catch {
             err("错误: \(error.localizedDescription)")
         }
