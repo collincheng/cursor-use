@@ -89,6 +89,8 @@ swift run CursorUsage --dump     # 打印接口原始 JSON（需要已配置 Key
 
 `--dump` 方便核对接口字段；stderr 只打状态码，不含凭据。
 
+应用图标由脚本用矢量绘制，生成结果 `Resources/AppIcon.icns` 已提交在仓库里，打包时自动放进 `.app`。想改样式：编辑 `scripts/make-icon.swift`，运行 `./scripts/make-icon.sh` 重新生成（`swift scripts/make-icon.swift --preview x.png` 可先预览）。
+
 ## 发布新版本
 
 版本号遵循 `主.次.修订`（如 `1.2.3`，预发布 `1.2.3-beta.1`），由 git tag 决定。

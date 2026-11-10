@@ -48,12 +48,21 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 cp "$BIN" "$APP/Contents/MacOS/${APP_NAME}"
 
+# 应用图标(由 scripts/make-icon.sh 生成并提交在 Resources/ 下)
+if [ -f "Resources/AppIcon.icns" ]; then
+    mkdir -p "$APP/Contents/Resources"
+    cp "Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+else
+    echo "警告: 没有找到 Resources/AppIcon.icns,应用将使用默认图标(运行 scripts/make-icon.sh 生成)"
+fi
+
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key><string>${APP_NAME}</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundleIdentifier</key><string>${BUNDLE_ID}</string>
     <key>CFBundleName</key><string>${APP_NAME}</string>
     <key>CFBundlePackageType</key><string>APPL</string>
