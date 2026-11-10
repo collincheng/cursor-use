@@ -77,10 +77,10 @@ struct CursorAPIClient {
     static let exchangeURL = URL(string: "https://api2.cursor.sh/auth/exchange_user_api_key")!
     static let base = "https://api2.cursor.sh/aiserver.v1.DashboardService/"
 
-    private func call(_ method: String, token: String) async throws -> (Int, Data) {
+    private func call(_ method: String, token: String, body: [String: Any] = [:]) async throws -> (Int, Data) {
         var req = URLRequest(url: URL(string: Self.base + method)!, timeoutInterval: 20)
         req.httpMethod = "POST"
-        req.httpBody = Data("{}".utf8)
+        req.httpBody = (try? JSONSerialization.data(withJSONObject: body)) ?? Data("{}".utf8)
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue("1", forHTTPHeaderField: "Connect-Protocol-Version")
@@ -100,6 +100,8 @@ struct CursorAPIClient {
         var usage: [String: Any]
         var plan: String?
         var grok: [String: Any]?
+        /// 今天 0 点(本地时区)到现在的按模型汇总
+        var today: [String: Any]?
     }
 
     /// `log` 只会收到状态码,不含任何凭据。
@@ -126,20 +128,28 @@ struct CursorAPIClient {
             J.str(J.dict($0["planInfo"])?["planName"]) ?? J.str($0["planName"])
         }
         let grok = await optionalCall("GetSandUsageStatus", token: token, log: log)
-        return Raw(usage: json, plan: plan, grok: grok)
+
+        // 今日用量:时间参数是毫秒时间戳字符串。本地时区 0 点起算。
+        let startOfDay = Calendar.current.startOfDay(for: Date())
+        let today = await optionalCall("GetAggregatedUsageEvents", token: token, log: log, body: [
+            "startDate": String(Int64(startOfDay.timeIntervalSince1970 * 1000)),
+            "endDate": String(Int64(Date().timeIntervalSince1970 * 1000)),
+        ])
+        return Raw(usage: json, plan: plan, grok: grok, today: today)
     }
 
     func fetchSnapshot() async throws -> UsageSnapshot {
         let raw = try await fetchRaw()
-        guard let snap = UsageSnapshot(json: raw.usage, plan: raw.plan, grok: raw.grok) else {
+        guard let snap = UsageSnapshot(json: raw.usage, plan: raw.plan, grok: raw.grok, today: raw.today) else {
             throw APIError.badResponse
         }
         return snap
     }
 
     /// 请求附加接口:任何失败都返回 nil
-    private func optionalCall(_ method: String, token: String, log: ((String) -> Void)?) async -> [String: Any]? {
-        guard let (status, data) = try? await call(method, token: token) else { return nil }
+    private func optionalCall(_ method: String, token: String, log: ((String) -> Void)?,
+                              body: [String: Any] = [:]) async -> [String: Any]? {
+        guard let (status, data) = try? await call(method, token: token, body: body) else { return nil }
         log?("\(method): HTTP \(status)")
         guard (200..<300).contains(status) else { return nil }
         return try? JSONSerialization.jsonObject(with: data) as? [String: Any]

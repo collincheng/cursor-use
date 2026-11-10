@@ -14,6 +14,7 @@ enum SelfTest {
         parsing()
         metrics()
         grok()
+        today()
         countdown()
         levels()
         steps()
@@ -122,6 +123,24 @@ enum SelfTest {
         }
         check(UsageSnapshot(json: usage, grok: nil)?.grokPercent == nil, "Grok 接口无返回 -> 无额度")
         check(UsageSnapshot(json: usage, grok: json("{}"))?.percent(for: .grok) == 22.302, "无 Grok 额度时指标回退总用量")
+    }
+
+    private static func today() {
+        let usage = json(realResponse)!
+
+        // 各模型 totalCents 求和(数字或字符串都接受)
+        let agg = json(#"{"aggregations":[{"modelIntent":"composer-2.5","totalCents":2167.5},{"modelIntent":"grok-4.7","totalCents":"32.5"}]}"#)
+        check(UsageSnapshot(json: usage, today: agg)?.todayCents == 2200, "今日消耗: 各模型求和")
+
+        // 没有数据的区间接口返回 {},应是 0 而不是"未取到"
+        check(UsageSnapshot(json: usage, today: json("{}"))?.todayCents == 0, "今日消耗: {} -> 0")
+        check(UsageSnapshot(json: usage, today: nil)?.todayCents == nil, "今日消耗: 接口失败 -> nil(不显示)")
+
+        // 跨天的缓存不显示
+        let fresh = UsageSnapshot(json: usage, today: agg, now: Date())
+        let stale = UsageSnapshot(json: usage, today: agg, now: Date().addingTimeInterval(-2 * 86_400))
+        check(fresh?.todayValid == true, "今日消耗: 当天有效")
+        check(stale?.todayValid == false, "今日消耗: 跨天的缓存不显示")
     }
 
     private static func countdown() {

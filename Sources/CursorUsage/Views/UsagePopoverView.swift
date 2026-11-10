@@ -129,6 +129,9 @@ private struct UsageDetailView: View {
 
     @ViewBuilder
     private var quota: some View {
+        if snap.todayValid {
+            InfoRow("今日消耗", Fmt.dollars(cents: snap.todayCents))
+        }
         if let limit = snap.limitCents {
             InfoRow("套餐额度", Fmt.dollars(cents: limit))
         }
