@@ -17,6 +17,7 @@ enum SelfTest {
         today()
         tokens()
         countdown()
+        progressBar()
         levels()
         dates()
 
@@ -176,6 +177,18 @@ enum SelfTest {
         check(past?.isCycleOver == true, "账期已结束 -> 需要刷新")
         let future = UsageSnapshot(json: json(#"{"billingCycleEnd":"99999999999000","planUsage":{"totalPercentUsed":1}}"#)!)
         check(future?.isCycleOver == false, "账期未结束")
+    }
+
+    private static func progressBar() {
+        func w(_ p: Double?, track: CGFloat = 200, h: CGFloat = 8) -> CGFloat {
+            ProgressBar.fillWidth(percent: p, trackWidth: track, height: h)
+        }
+        check(w(0) == 0 && w(nil) == 0, "进度条: 0% 不画填充")
+        check(w(0.8) == 8, "进度条: 进度很少时至少露出一个圆头(=条高)")
+        check(w(0.8, h: 6) == 6, "进度条: 圆头宽度随条高变化")
+        check(w(50) == 100, "进度条: 正常比例")
+        check(w(100) == 200 && w(180) == 200, "进度条: 满格封顶")
+        check(w(-5) == 0, "进度条: 负数不画")
     }
 
     private static func levels() {  // 默认警告线 80、严重线 90

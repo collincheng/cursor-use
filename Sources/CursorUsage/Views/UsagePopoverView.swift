@@ -112,7 +112,7 @@ private struct UsageDetailView: View {
                         .font(.callout).foregroundStyle(.secondary).monospacedDigit()
                 }
             }
-            ProgressBar(percent: snap.percent)
+            ProgressBar(percent: snap.percent, height: 10)
         }
     }
 
@@ -150,7 +150,7 @@ private struct UsageDetailView: View {
     private func splitBar(_ title: String, _ percent: Double) -> some View {
         HStack(spacing: 8) {
             Text(title).font(.caption).foregroundStyle(.secondary).frame(width: 34, alignment: .leading)
-            ProgressBar(percent: percent)
+            ProgressBar(percent: percent, height: 6)
             Text(Fmt.percent1(percent)).font(.caption).monospacedDigit().frame(width: 48, alignment: .trailing)
         }
     }

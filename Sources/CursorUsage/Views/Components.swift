@@ -10,19 +10,31 @@ extension UsageLevel {
     }
 }
 
-/// 圆角进度条,颜色按用量档位
+/// 圆角进度条,颜色按用量档位。
+/// 进度很少时填充条至少露出一个圆头(宽度 = 条高),避免变成一根细线。
 struct ProgressBar: View {
     let percent: Double?
+    var height: CGFloat = 8
 
     var body: some View {
+        let tint = UsageLevel(percent: percent).tint
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 Capsule().fill(.quaternary)
-                Capsule().fill(UsageLevel(percent: percent).tint)
-                    .frame(width: max(0, min(1, (percent ?? 0) / 100)) * geo.size.width)
+                Capsule()
+                    .fill(LinearGradient(colors: [tint.opacity(0.7), tint], startPoint: .leading, endPoint: .trailing))
+                    .frame(width: Self.fillWidth(percent: percent, trackWidth: geo.size.width, height: height))
             }
         }
-        .frame(height: 8)
+        .frame(height: height)
+        .animation(.easeOut(duration: 0.4), value: percent)
+    }
+
+    /// 0% 不画填充;有进度时不小于条高;最大为整条。
+    static func fillWidth(percent: Double?, trackWidth: CGFloat, height: CGFloat) -> CGFloat {
+        let fraction = max(0, min(1, (percent ?? 0) / 100))
+        guard fraction > 0 else { return 0 }
+        return min(trackWidth, max(height, fraction * trackWidth))
     }
 }
 
