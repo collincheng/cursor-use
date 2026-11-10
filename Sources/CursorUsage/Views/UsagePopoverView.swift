@@ -133,6 +133,7 @@ private struct UsageDetailView: View {
             VStack(alignment: .leading, spacing: 2) {
                 InfoRow("今日消耗", Fmt.dollars(cents: today.cents))
                 if today.totalTokens > 0 {
+                    InfoRow("今日 tokens", Fmt.tokens(today.totalTokens))
                     Text(Fmt.tokenBreakdown(today))
                         .font(.caption2).foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .trailing)
