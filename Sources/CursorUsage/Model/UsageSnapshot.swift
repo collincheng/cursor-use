@@ -11,8 +11,8 @@ struct UsageSnapshot: Codable, Equatable {
     /// Grok Bot 的独立每周额度及其重置时间;账号没有独立额度时为 nil
     var grokPercent: Double?
     var grokResetAt: Date?
-    /// 今天(本地 0 点至拉取时)的消耗及按池子的拆分;拉取失败时为 nil。跨天后的缓存值不应再显示(见 todayValid)
-    var today: TodayUsage?
+    /// 今天(本地 0 点至拉取时)所有模型的合计消耗;拉取失败时为 nil。跨天后的缓存值不应再显示(见 todayUsage)
+    var todayTotal: TokenUsage?
     /// 已消耗总额(含赠送额度)、套餐包含额度、其中赠送部分
     var usedCents: Double?
     var limitCents: Double?
@@ -56,8 +56,7 @@ struct UsageSnapshot: Codable, Equatable {
         let meter = Self.grokMeter(grok)
         self.grokPercent = meter?.percent
         self.grokResetAt = meter?.resetAt
-        let autoModels = Set((json["autoBucketModels"] as? [String]) ?? [])
-        self.today = TodayUsage(json: today, autoModels: autoModels)
+        self.todayTotal = TokenUsage(aggregate: today)
         self.usedCents = used
         self.limitCents = limit
         self.bonusCents = J.firstNum(planUsage, ["bonusSpend"])
@@ -93,8 +92,8 @@ struct UsageSnapshot: Codable, Equatable {
     // MARK: 今日用量
 
     /// 今日用量;缓存的快照跨天后数字已经过时,不再返回
-    var todayUsage: TodayUsage? {
-        Calendar.current.isDateInToday(fetchedAt) ? today : nil
+    var todayUsage: TokenUsage? {
+        Calendar.current.isDateInToday(fetchedAt) ? todayTotal : nil
     }
 
     // MARK: Grok Bot
