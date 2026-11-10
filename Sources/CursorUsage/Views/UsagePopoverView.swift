@@ -91,7 +91,7 @@ private struct UsageDetailView: View {
                 ResetRow(title: "额度重置", date: end)
             }
             if snap.grokPercent != nil, let reset = snap.grokResetAt {
-                ResetRow(title: "Grok 重置", date: reset)
+                ResetRow(title: "Grok Bot 重置", date: reset)
             }
             InfoRow("更新于", snap.fetchedAt.formatted(date: .omitted, time: .shortened))
         }
@@ -122,7 +122,7 @@ private struct UsageDetailView: View {
             VStack(alignment: .leading, spacing: 6) {
                 if let p = snap.autoPercent { splitBar("Auto", p) }
                 if let p = snap.apiPercent { splitBar("API", p) }
-                if let p = snap.grokPercent { splitBar("Grok", p) }
+                if let p = snap.grokPercent { splitBar("Grok Bot", p, note: "独立每周额度,不计入总用量") }
             }
         }
     }
@@ -148,11 +148,19 @@ private struct UsageDetailView: View {
         }
     }
 
-    private func splitBar(_ title: String, _ percent: Double) -> some View {
-        HStack(spacing: 8) {
-            Text(title).font(.caption).foregroundStyle(.secondary).frame(width: 34, alignment: .leading)
-            ProgressBar(percent: percent, height: 6)
-            Text(Fmt.percent1(percent)).font(.caption).monospacedDigit().frame(width: 48, alignment: .trailing)
+    /// 标签列宽固定,三条进度条左右对齐;`note` 在条下方补一行小字说明。
+    private func splitBar(_ title: String, _ percent: Double, note: String? = nil) -> some View {
+        let labelWidth: CGFloat = 52
+        return VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 8) {
+                Text(title).font(.caption).foregroundStyle(.secondary).frame(width: labelWidth, alignment: .leading)
+                ProgressBar(percent: percent, height: 6)
+                Text(Fmt.percent1(percent)).font(.caption).monospacedDigit().frame(width: 48, alignment: .trailing)
+            }
+            if let note {
+                Text(note).font(.caption2).foregroundStyle(.secondary)
+                    .padding(.leading, labelWidth + 8)
+            }
         }
     }
 
